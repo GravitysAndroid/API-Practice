@@ -1,60 +1,76 @@
-const express = require ('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const mongoose = require('mongoose');
+const express = require("express");
+const bodyParser = require("body-parser");
+const cors = require("cors");
+const mongoose = require("mongoose");
 
 const app = express();
 const port = 3000;
-const url = 'mongodb://localhost:27017/messageBoard';
+const url = "mongodb://localhost:27017/messageBoard";
 
 app.use(bodyParser.json());
 app.use(cors());
 
 const db = mongoose.connection;
 
-db.on('error', console.error.bind(console, 'connection error:'));
-db.once('open', () => {console.log('Connected to mongodb')});
-
-const Message = mongoose.model('Message', {
-    username: String,
-    msg: String
+db.on("error", console.error.bind(console, "connection error:"));
+db.once("open", () => {
+  console.log("Connected to mongodb");
 });
 
-const User = mongoose.model('User', {
-    name: String,
-    messages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Message' }]
+const Message = mongoose.model("Message", {
+  username: String,
+  msg: String,
 });
 
-app.post('/api/message', async (req, res) => {
-    const message = new Message(req.body);
+const User = mongoose.model("User", {
+  name: String,
+  messages: [{ type: mongoose.Schema.Types.ObjectId, ref: "Message" }],
+});
 
-    message.save();
+app.post("/api/message", async (req, res) => {
+  const message = new Message(req.body);
 
-    let user = await User.findOne({name : message.username});
+  message.save();
 
-    if(!user) {
-        user = new User({name : message.username}).save();
-    }
+  let user = await User.findOne({ name: message.username });
 
-    user.messages.push(message);
-    user.save();
+  if (!user) {
+    user = new User({ name: message.username }).save();
+  }
 
-    res.status(200).send();
-})
+  user.messages.push(message);
+  user.save();
 
-app.get('/api/message', async (req, res) => {
-    const docs = await Message.find();
+  res.status(200).send();
+});
 
-    if(!docs) return res.json({error : 'Error getting messages'});
-    res.json(docs);
-})
+app.get("/api/message", async (req, res) => {
+  const docs = await Message.find();
 
-app.get('/api/user/:name', async (req, res) => {
-    const name = req.params.name;
-    return res.json(await User.findOne({name}).populate('messages'));
+  if (!docs) return res.json({ error: "Error getting messages" });
+  res.json(docs);
+});
+
+app.get("/api/user/:name", async (req, res) => {
+  const name = req.params.name;
+
+  const aggregate = await User.aggregate([
+    {
+      $project: {
+        messages: 1,
+        name: 1,
+        isGold: { $gte: [{ $size: "$messages" }, 5] },
+      },
+    },
+  ]);
+
+  await User.populate(aggregate, { path: "messages" });
+
+  res.json(aggregate);
+
+  //return res.json(await User.findOne({name}).populate('messages'));
 });
 
 mongoose.connect(url);
 
-app.listen(port, () => console.log('App running on port', port));
-
+app.listen(port, () => console.log("App running on port", port));
