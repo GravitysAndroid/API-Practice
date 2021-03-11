@@ -1,36 +1,60 @@
 const express = require ('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const MongoClient = require('mongodb').MongoClient;
+const mongoose = require('mongoose');
 
 const app = express();
 const port = 3000;
-const url = 'mongodb://localhost:27017';
-const dbName = 'messageBoard';
-let db;
+const url = 'mongodb://localhost:27017/messageBoard';
 
-app.use(bodyParser.text());
+app.use(bodyParser.json());
 app.use(cors());
 
-app.post('/api/message', (req, res) => {
-    console.log(req.body);
-    db.collection('messages').insertOne({'msg' : req.body});
+const db = mongoose.connection;
+
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', () => {console.log('Connected to mongodb')});
+
+const Message = mongoose.model('Message', {
+    username: String,
+    msg: String
+});
+
+const User = mongoose.model('User', {
+    name: String,
+    messages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Message' }]
+});
+
+app.post('/api/message', async (req, res) => {
+    const message = new Message(req.body);
+
+    message.save();
+
+    let user = await User.findOne({name : message.username});
+
+    if(!user) {
+        user = new User({name : message.username}).save();
+    }
+
+    user.messages.push(message);
+    user.save();
+
     res.status(200).send();
 })
+
 app.get('/api/message', async (req, res) => {
-    const docs = await db.collection('messages').find({}).toArray();
+    const docs = await Message.find();
 
     if(!docs) return res.json({error : 'Error getting messages'});
     res.json(docs);
 })
 
-MongoClient.connect(url, function (err, client) {
-    if(err) return console.log('mongodb error', err);
-
-    console.log("Connected successfully to server");
-  
-    db = client.db(dbName);
+app.get('/api/user/:name', async (req, res) => {
+    const name = req.params.name;
+    return res.json(await User.findOne({name}).populate('messages'));
 });
+
+mongoose.connect(url);
 
 app.listen(port, () => console.log('App running on port', port));
 

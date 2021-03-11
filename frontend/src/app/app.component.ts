@@ -9,6 +9,7 @@ import { HttpClient } from '@angular/common/http'
 export class AppComponent {
   message = '';
   messages = Array<{id: string, msg: string}>();
+  username = '';
 
   constructor(private http: HttpClient){
 
@@ -20,6 +21,6 @@ export class AppComponent {
 
   post(){
     console.log('post', this.message)
-    this.http.post('http://localhost:3000/api/message', this.message).toPromise();
+    this.http.post('http://localhost:3000/api/message', {msg : this.message, username : this.username}).toPromise();
   }
 }
