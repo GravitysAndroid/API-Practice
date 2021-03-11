@@ -9,6 +9,5 @@ export class AppComponent {
   message = '';
   post(){
     console.log('post', this.message)
-
   }
 }
