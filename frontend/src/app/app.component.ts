@@ -8,7 +8,7 @@ import { HttpClient } from '@angular/common/http';
 })
 export class AppComponent {
   message = '';
-  messages = Array<{ id: string; msg: string }>();
+  messages: any = [];
   username = '';
 
   constructor(private http: HttpClient) {}
